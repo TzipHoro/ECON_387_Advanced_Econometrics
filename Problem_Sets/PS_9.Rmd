@@ -1,0 +1,96 @@
+---
+title: "Problem Set 9"
+author: "Tziporah Horowitz"
+date: "12/1/2019"
+output: html_notebook
+---
+
+```{r}
+#install.packages("AER")
+library(foreign)
+library(dplyr)
+library(ggplot2)
+library(stargazer)
+library(AER)
+
+
+df1 <- read.dta("C:\\Users\\Tziporah\\Documents\\Major\\data science\\ECON_387\\maketable1.dta")
+df2 <- read.dta("C:\\Users\\Tziporah\\Documents\\Major\\data science\\ECON_387\\maketable2.dta")
+df4 <- read.dta("C:\\Users\\Tziporah\\Documents\\Major\\data science\\ECON_387\\maketable4.dta")
+#head(df4)
+```
+
+```{r}
+df1_subset <- df1 %>% 
+  select(avexpr, logpgp95, shortnam, baseco) %>% 
+  filter(!is.na(avexpr), !is.na(logpgp95), baseco == 1) 
+
+
+ggplot(data = df1_subset, aes(x = avexpr , y = logpgp95, label = shortnam, width = 1)) + 
+  geom_text() +
+  xlim(3.3 ,10.5) +
+  ylim(4, 10.5) + 
+  geom_smooth(method = "lm", se = FALSE)
+```
+
+```{r}
+reg1 <- lm(logpgp95 ~ avexpr, data = df2)
+reg2 <- lm(logpgp95 ~ avexpr + lat_abst, data = df2)
+reg3 <- lm(logpgp95 ~ avexpr + lat_abst + asia + africa + other, data = df2)
+
+stargazer(reg1, reg2, reg3, 
+          title = "Table 2 - OLS Regressions", 
+          type = "text", 
+          intercept.bottom = FALSE,
+          omit.stat = c("adj.rsq", "ser", "f"),
+          column.labels = c("Model 1",
+                            "Model 3",
+                            "Model 4"),
+          model.numbers = FALSE)
+
+# Interpretations:
+# Model 1: for each index of average expropriation risk, logGDP increases by 53%.
+# Model 3: for each index of average expropriation risk, logGDP increases by 46%.
+# Model 4: for each index of average expropriation risk, logGDP increases by 39%.
+# The continent dummies show that less developed nations decrease logGDP. This
+# may be because richer countries can afford and may prefer better institutions.
+
+# The average expropriation rate might be endogenous because it's likely influenced
+# by other variables.
+
+# Acemoglu et al. argue that settler mortality may be a valid instrument because
+# higher mortality rates of colonizers led to the establishment of institutions 
+# that were less protection against expropriation, and these institutions still 
+# persist today. 
+
+```
+
+```{r}
+df1_subset2 <- df1 %>% 
+  select(avexpr, logem4, shortnam) %>% 
+  filter(!is.na(avexpr), !is.na(logem4)) 
+
+
+ggplot(data = df1_subset2, aes(y = avexpr , x = logem4, label = shortnam, width = 1)) + 
+  geom_text() +
+  xlim(1.8,8.4) +
+  ylim(3.3,10.4) + 
+  xlab("Log of Settler Mortality") +
+  ylab("Average Expropriation Risk 1985-95") +
+  geom_smooth(method = "lm", se = FALSE) +
+  ggtitle("Figure 3: First-stage relationship between settler mortality and expropriation risk")
+
+```
+
+```{r}
+df4 <- df4 %>% 
+  select(avexpr, logpgp95, logem4, baseco) %>% 
+  filter(baseco == 1)
+
+iv = ivreg(logpgp95 ~ avexpr | logem4, data = df4)
+summary(iv)
+
+# In comparison to the least squares results, the bias of the ls estimator
+# is downward.
+```
+
