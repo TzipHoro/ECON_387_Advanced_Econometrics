@@ -1,0 +1,114 @@
+---
+title: "Untitled"
+author: "Tziporah Horowitz"
+date: "10/27/2019"
+output: html_document
+---
+
+```{r}
+library(readr)
+library(Hmisc)
+library(dplyr)
+library(stargazer)
+library(ggplot2)
+
+```
+
+```{r}
+# import data
+mathData <- read_csv("C:\\Users\\Tziporah\\Documents\\Major\\data science\\ECON_387\\Final_sample.csv")
+#str(mathData)
+mathData <- data.frame(mathData)
+
+```
+
+```{r}
+# Math Gender Gap
+myOLS <- function(z){
+  y <- z$pv1math
+  x <- z$female
+  tmp <- lm(y~x)
+  return(tmp$coefficients[2])
+}
+
+mathGenderGap <- mathData %>% 
+  group_by(background) %>% 
+  group_map(~myOLS(.x)) 
+
+mathGenderGap <- unlist(mathGenderGap)
+mathGenderGap <- unname(mathGenderGap)
+
+```
+
+```{r}
+# Plot Math Gender Gap
+mathData %>% 
+  group_by(background) %>% 
+  summarise(genderGap = mean(ggi)) %>% 
+  mutate(mathGenderGap = mathGenderGap) %>% 
+  ggplot(aes(x = genderGap, y = mathGenderGap)) + 
+  geom_point() + 
+  xlab("Gender Gap Index") +
+  ylab("Math Gender Gap") +
+  geom_text(size = 3, aes(label=background),hjust=0, vjust=0) +
+  ylim(-100, 50) +
+  xlim(0.58, 0.82) +
+  geom_smooth(method = "lm", se = FALSE, color = "black")
+
+```
+
+```{r}
+model1 <- lm(pv1math ~ female + I(ggi*female) + age + I(age*female) + diffgrade + 
+               I(diffgrade*female) + factor(background) + factor(country) + 
+               factor(year) + female:factor(country) - 1, data = mathData, weights = stweight)
+model1$coefficients <- model1$coefficients[1:6]
+
+model2 <- lm(pv1math ~ female + I(ggi*female) + age + I(age*female) + diffgrade + I(diffgrade*female) +
+               I(lgdppc*female) + factor(background) + factor(country) + factor(year) + 
+               female:factor(country) - 1, data = mathData, weights = stweight)
+model2$coefficients <- model2$coefficients[1:7]
+
+model3 <- lm(pv1math ~ female + I(ggi*female) + age + I(age*female) + diffgrade + I(diffgrade*female) +
+               I(lgdppc*female) + ggi + lgdppc + factor(country) + factor(year) + 
+               female:factor(country) - 1, data = mathData, weights = stweight)
+model3$coefficients <- model3$coefficients[1:9]
+
+model4 <- lm(pv1math ~ female + I(ggi*female) + age + I(age*female) + diffgrade + I(diffgrade*female) +
+               I(lgdppc*female) + fisced + I(fisced*female) + misced + I(misced*female) +
+               factor(background) + factor(country) + factor(year) + female:factor(country) - 1, 
+               data = mathData, weights = stweight)
+model4$coefficients <- model4$coefficients[1:11]
+
+model5 <- lm(pv1math ~ female + I(ggi*female) + age + I(age*female) + diffgrade + I(diffgrade*female) +
+               I(lgdppc*female) + fisced + I(fisced*female) + misced + I(misced*female) +
+               dadwork + I(dadwork*female) + momwork + I(momwork*female) + homepos +
+               I(homepos*female) +
+               factor(background) + factor(country) + factor(year) + female:factor(country) - 1, 
+               data = mathData, weights = stweight)
+model5$coefficients <- model5$coefficients[1:17]
+
+model6 <- lm(pv1math ~ female + I(ggi*female) + age + I(age*female) + diffgrade + I(diffgrade*female) +
+               I(lgdppc*female) + fisced + I(fisced*female) + misced + I(misced*female) +
+               dadwork + I(dadwork*female) + momwork + I(momwork*female) + homepos +
+               I(homepos*female) + pcgirls + I(pcgirls*female) + private + I(private*female) + 
+               metropolis + I(metropolis*female) + factor(background) + factor(country) + 
+               factor(year) + female:factor(country) - 1, data = mathData, weights = stweight)
+model6$coefficients <- model6$coefficients[1:23]
+
+```
+
+
+```{r}
+stargazer(model1, model2, model3, model4, model5, model6, title = "Results", type = "text", 
+          covariate.labels= c("Female", "GGI x Female", "Age of Student", "Age x Female",
+                              "Diff. grade", "Diff. grade x Female", "GDP x Female", 
+                              "GGI", "GDP", "Dad educ.", "Dad educ. x Female", "Mom educ.", 
+                              "Mom educ. x Female", "Dad work", 
+                              "Dad work x Female", "Mom work", "Mom work x Female",
+                              "Home possessions", "Home possessions x Female", 
+                              "Proportion of girls at school", "Prop. girls x Female",
+                              "Private school", "Private school x Female", 
+                              "School is in a metropolis", "School is in a Metro x Female"),
+          out = "table1.txt")
+```
+
