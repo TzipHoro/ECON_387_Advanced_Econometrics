@@ -51,5 +51,3 @@ tmp3 = np.log(tmp2)
 np.argwhere(np.isnan(tmp3))
 
 
-
-
