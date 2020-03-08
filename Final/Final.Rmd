@@ -1,0 +1,124 @@
+---
+title: "ECON 387 Final"
+author: "Tziporah Horowitz"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r message=FALSE}
+#install.packages("tseries")
+library(dplyr)
+library(plm)
+library(MASS)
+library(dynlm)
+library(lmtest)
+library(sandwich)
+library(car)
+library(tseries)
+```
+
+
+```{r}
+munnelData <- readr::read_csv("C:\\Users\\Tziporah\\Documents\\Major\\data science\\ECON_387\\munnell(1).csv")
+
+head(munnelData)
+
+myPanel <- function(y, X){
+  N <- length(unique(munnelData$STATE))
+  Y <- length(unique(munnelData$YR))
+
+  L_T <- matrix(c(rep(1, Y)))
+  L_N <- matrix(c(rep(1, N)))
+  L_NT <- matrix(c(rep(1, N*Y)))
+  Z_mu <- diag(N) %x% L_T
+  Z_lambda <- L_N %x% diag(Y)
+
+  P_mu <- Z_mu %*% ginv(t(Z_mu) %*% Z_mu) %*% t(Z_mu)
+  P_lambda <- Z_lambda %*% ginv(t(Z_lambda) %*% Z_lambda) %*% t(Z_lambda)
+  P_mu_lambda <- P_mu %*% P_lambda
+
+  Q <- diag(N*Y) - P_mu - P_lambda + P_mu_lambda
+  
+  Bhat <- ginv(t(X) %*% Q %*% X) %*% t(X) %*% Q %*% y
+  
+  yBar_i <- P_mu %*% y
+  yBar_t <- P_lambda %*% y
+  
+  XBar_i <- P_mu %*% X
+  XBar_t <- P_lambda %*% X
+  
+  muHat <- yBar_i - (XBar_i %*% Bhat)
+  lambdaHat <- yBar_t - (XBar_t %*% Bhat)
+  
+  vHat <- y - (X %*% Bhat) - muHat - lambdaHat
+  
+  SigHat <- (t(vHat) %*% vHat)/((N-1)*(Y-1)-ncol(X))
+  
+  return(list(Bhat, SigHat))
+}
+
+y <- as.matrix(munnelData$GSP)
+x <- as.matrix(data.frame(ln__PCAP_HWY_WATER_UTIL = log(munnelData$P_CAP + munnelData$HWY + munnelData$WATER +
+                                                        munnelData$UTIL),
+       ln__PC = log(munnelData$PC),
+       ln__EMP = log(munnelData$EMP),
+       UNEMP = munnelData$UNEMP))
+  
+myPanel(y, x)
+
+data <- pdata.frame(munnelData, index = c("STATE", "YR"))
+
+reg1 <- plm(log(GSP) ~ log(P_CAP + HWY + WATER + UTIL) + log(PC) + log(EMP) + UNEMP,
+            data = data,
+            model = "within",
+            effect = "twoways")
+
+
+reg2 <- lm(log(GSP) ~ log(P_CAP + HWY + WATER + UTIL) + log(PC) + log(EMP) + UNEMP +
+             factor(STATE) + factor(YR),
+            data = data,)
+reg2$coefficients <- reg2$coefficients[2:5]
+
+stargazer::stargazer(reg1, reg2, title = "Two-Way Fixed Effects VS Dummy Variable Approach", type = "text")
+
+# The results are the same for both models
+
+```
+
+```{r}
+unemp <- readr::read_csv("C:\\Users\\Tziporah\\Documents\\Major\\data science\\ECON_387\\UNRATE.csv")
+
+head(unemp)
+
+myts <- ts(unemp[ , 2:length(unemp)], start = c(1948, 1), frequency = 12)
+plot(myts[ ,c("UNRATE")], xlab = " ", ylab = "Unemployment Rate", col = "blue")
+
+# There are no definative trends, over time Unemployment Rate increases and decreases.
+
+BIC(dynlm(myts ~ 1))
+order <- 1:8
+BICs <- sapply(order, function(x) 
+        "AR" = BIC(dynlm(myts ~ L(myts, 1:x))))
+p <- which.min(BICs)
+
+# The autoregression chosen is order 6
+
+reg3 <- dynlm(
+  d(UNRATE) ~ L(d(UNRATE), 1:p),
+  data = myts,
+  start = c(1948, 1),
+  end = c(2019, 11)
+)
+
+coeftest(reg3, vcov = vcovHAC)
+summary(reg3)$adj.r.squared
+
+# Lags 2, 3, 4, and 5 are statistically significant
+
+adf.test(myts, k=6)
+
+# There is no unit root present
+
+```
+
