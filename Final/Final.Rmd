@@ -119,6 +119,5 @@ summary(reg3)$adj.r.squared
 adf.test(myts, k=6)
 
 # There is no unit root present
-
 ```
 
